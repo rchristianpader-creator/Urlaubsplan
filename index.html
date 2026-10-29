@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Urlaubsplaner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FFFBE3; --surface:#FFFFFF; --ink:#1B1B1B; --muted:#6B6444; --line:#EADFA0;
+  --sun:#FFE500; --sun-ink:#1B1B1B; --red:#E30613; --redt:#E30613; --ferien:#1E8E5A; --holiday:#E30613; --weekend:#F3EFD6; --danger:#B3000F;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#1A1A1A; --surface:#262626; --ink:#F5F5F5; --muted:#BDB79F; --line:#44402B;
+    --sun:#FFE500; --sun-ink:#1B1B1B; --red:#E30613; --redt:#FF5560; --ferien:#5FD3A0; --holiday:#E30613; --weekend:#33311F; --danger:#FF8A80;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1A1A1A; --surface:#262626; --ink:#F5F5F5; --muted:#BDB79F; --line:#44402B;
+  --ferien:#5FD3A0; --sun:#FFE500; --sun-ink:#1B1B1B; --red:#E30613; --redt:#FF5560; --holiday:#E30613; --weekend:#33311F; --danger:#FF8A80;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none!important}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.45}
+main{max-width:1080px;margin:0 auto;padding:28px 18px 60px}
+h1{font-size:clamp(2rem,6vw,3.4rem);font-weight:800;letter-spacing:-.02em;line-height:1;margin:0}
+h2{font-size:1.25rem;font-weight:600;margin:0 0 12px}
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:16px;margin-bottom:22px}
+.year{display:flex;align-items:center;gap:6px}
+.year button{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:1.1rem;cursor:pointer}
+.year span{font-size:1.4rem;font-weight:600;min-width:64px;text-align:center}
+
+/* Day meter: the memorable element */
+.meter{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px}
+.meter-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;margin-bottom:14px}
+.left-num{font-size:clamp(2.6rem,9vw,4.2rem);font-weight:800;line-height:1}
+.meter-head p{margin:0;color:var(--muted)}
+.dots{display:grid;grid-template-columns:repeat(18,1fr);gap:6px}
+.dot{aspect-ratio:1;border-radius:6px;background:var(--weekend);border:1px solid var(--line)}
+.dot.used{background:var(--sun);border-color:var(--sun)}
+@media (max-width:520px){.dots{grid-template-columns:repeat(12,1fr)}}
+
+.grid2{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:18px;margin-top:18px}
+@media (max-width:820px){.grid2{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px}
+label{display:block;font-size:.9rem;color:var(--muted);margin:10px 0 4px}
+input,select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.preview{margin:14px 0 4px;font-size:.95rem}
+.preview.err{color:var(--danger)}
+.btn{margin-top:12px;width:100%;padding:12px;border-radius:12px;border:0;background:var(--ink);color:var(--bg);font:inherit;font-weight:600;cursor:pointer}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+
+.entries{list-style:none;margin:0;padding:0}
+.entries li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.entries li:first-child{border-top:0}
+.entries .when{font-weight:600}
+.entries .note{color:var(--muted);font-size:.9rem}
+.entries .days{background:var(--sun);color:var(--sun-ink);font-weight:600;border-radius:999px;padding:2px 10px;white-space:nowrap}
+.del{background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:4px 9px;cursor:pointer;font:inherit}
+.empty{color:var(--muted);margin:0}
+
+.bar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px 18px;margin-top:18px}
+.hint{margin:0;font-weight:600}
+.hint.err{color:var(--danger)}
+.region{display:flex;align-items:center;gap:8px;margin:0;color:var(--muted)}
+.region select{width:auto}
+.mgrid button.d{border:0;font:inherit;font-size:.78rem;color:var(--ink);background:transparent;cursor:pointer;padding:6px 0}
+.mgrid button.d.vac{background:var(--sun);color:var(--sun-ink);font-weight:800;opacity:1}
+.mgrid button.d.vac.past{opacity:1}
+.mgrid button.d:hover{outline:2px solid var(--sun);outline-offset:-2px}
+.mgrid .past{opacity:.55}
+.fer{box-shadow:inset 0 -3px 0 var(--ferien)}
+.mhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}
+.mhead h3{margin:0}
+.mhead .cnt{font-size:.8rem;color:var(--muted);text-align:right;line-height:1.25}
+.mhead .cnt b{color:var(--ink);font-size:.95rem}
+.mhead .cnt.zero b{color:var(--danger)}
+details.fp{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 16px}
+details.fp summary{cursor:pointer;font-weight:600}
+.fp .frow{display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:8px;align-items:end;margin-top:8px}
+@media (max-width:620px){.fp .frow{grid-template-columns:1fr 1fr}.fp .frow .fname{grid-column:1/-1}}
+.fp .frow label{margin:0 0 3px}
+.fp .abtn{padding:10px 16px;border-radius:10px;border:0;background:var(--ink);color:var(--bg);font:inherit;font-weight:600;cursor:pointer}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.chip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-left:4px solid var(--ferien);border-radius:10px;padding:5px 6px 5px 10px;font-size:.9rem}
+.chip button{border:0;background:none;color:var(--muted);cursor:pointer;font:inherit;padding:0 4px}
+.wiz{max-width:560px;margin:10px auto 0;text-align:center}
+.wiz h2{font-size:1.5rem;margin-bottom:6px}
+.wiz p{color:var(--muted);margin:0 0 18px}
+.wiz .opts{display:grid;gap:10px}
+.wiz .opts.three{grid-template-columns:repeat(3,1fr)}
+.wiz .opts.two{grid-template-columns:repeat(2,1fr)}
+@media (max-width:520px){.wiz .opts.three{grid-template-columns:1fr}}
+.wiz .opt{padding:18px 10px;border-radius:14px;border:2px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:1.1rem;font-weight:600;cursor:pointer}
+.wiz .opt:hover{border-color:var(--sun);background:var(--sun);color:var(--sun-ink)}
+.steps{font-size:.85rem;color:var(--muted);margin-bottom:10px}
+.who{display:flex;align-items:center;gap:8px;font-size:.95rem;color:var(--muted)}
+.who b{color:var(--ink)}
+.who button{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:8px;padding:3px 10px;cursor:pointer;font:inherit;font-size:.85rem}
+.ferNote{margin:10px 0 0;font-size:.9rem;color:var(--muted)}
+.ferNote.prio{color:var(--ink);font-weight:600;border-left:4px solid var(--ferien);padding-left:10px}
+.wiz input.search{text-align:center;font-size:1.2rem;padding:14px}
+.letters{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:14px 0 0}
+.letters button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-weight:600;cursor:pointer}
+.letters button:hover,.letters button.on{background:var(--sun);border-color:var(--sun);color:var(--sun-ink)}
+.wiz .names{display:grid;gap:8px;margin-top:14px;text-align:left}
+.wiz .names .opt{padding:12px 14px;font-size:1rem;text-align:left;display:flex;justify-content:space-between;gap:10px}
+.wiz .names .opt span{color:var(--muted);font-weight:400}
+.evbtn{padding:10px 20px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--muted);font:inherit;cursor:pointer}
+.ev h2{margin-top:18px}
+.ev .bad{color:var(--danger);font-weight:600}
+.ev .sub{color:var(--muted);font-size:.85rem;margin-top:2px}
+.ev .pwrow{display:flex;gap:8px;margin-top:10px}
+.ev .pwrow input{flex:1;font-size:1.2rem;text-align:center}
+.ev .pwrow button{padding:10px 18px;border-radius:10px;border:0;background:var(--ink);color:var(--bg);font:inherit;font-weight:600;cursor:pointer}
+.ev .back{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:8px;padding:4px 12px;cursor:pointer;font:inherit}
+.ev .tw{overflow-x:auto;margin-top:10px;border:1px solid var(--line);border-radius:10px}
+.ev table{border-collapse:collapse;font-size:.75rem;white-space:nowrap}
+.ev th,.ev td{border:1px solid var(--line);padding:3px 5px;text-align:center;min-width:24px}
+.ev th{background:var(--weekend);font-weight:600}
+.ev td.nm,.ev th.nm{position:sticky;left:0;background:var(--surface);text-align:left;min-width:116px;z-index:1}
+.ev th.nm{background:var(--weekend)}
+.ev tr.grp td{background:var(--weekend);font-weight:700}
+.ev tr.grp td.nm{background:var(--weekend)}
+.ev td.v{background:var(--sun);color:var(--sun-ink);font-weight:700}
+.ev td.over{background:var(--danger);color:#fff;font-weight:700}
+.ev tr.tot td{font-weight:700;border-top:2px solid var(--ink)}
+.ev td.none{color:var(--muted);font-style:italic}
+.cal{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px;margin-top:18px}
+.month{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px}
+.month h3{margin:0 0 6px;font-size:1rem;font-weight:600}
+.mgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:.78rem;text-align:center}
+.mgrid .wd{color:var(--muted);padding-bottom:2px}
+.mgrid .d{padding:6px 0;border-radius:5px}
+.mgrid .we{background:var(--weekend);color:var(--muted)}
+.mgrid .hol{background:var(--holiday);color:#fff;font-weight:700;cursor:not-allowed}
+.mgrid .vac{background:var(--sun);color:var(--sun-ink);font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:.85rem;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.foot{margin-top:18px;font-size:.85rem;color:var(--muted)}
+
+/* ---- Netto-Look: gelbes Kopfband, roter Rand, rote Buttons ---- */
+.top{background:var(--sun);border-bottom:6px solid var(--red);border-radius:14px;padding:16px 18px;color:#1B1B1B}
+h1{color:var(--red);text-transform:uppercase;font-weight:800;letter-spacing:.01em}
+.top .who,.top .who b,.top .year span{color:#1B1B1B}
+.top .who button,.top .year button{background:#fff;color:#1B1B1B;border:1px solid #1B1B1B}
+h2{color:var(--redt);font-weight:800}
+.month h3{color:var(--redt);font-weight:800}
+.meter{border-top:6px solid var(--red)}
+.left-num{color:var(--redt)}
+.dot.used{background:var(--sun);border-color:#1B1B1B}
+.btn,.ev .pwrow button,.fp .abtn{background:var(--red);color:#fff}
+.evbtn{border:2px solid var(--red);color:var(--redt);font-weight:700;background:var(--surface)}
+.wiz .opt{border:2px solid var(--red);background:var(--surface)}
+.wiz .opt:hover{background:var(--sun);border-color:var(--red);color:#1B1B1B}
+.wiz .names .opt span{color:var(--muted)}
+.ev th{background:var(--sun);color:#1B1B1B}
+.ev tr.grp td,.ev tr.grp td.nm{background:var(--sun);color:#1B1B1B}
+.ev th.nm{background:var(--sun)}
+.ev .back,.del{border-color:var(--red);color:var(--redt)}
+.entries .days{background:var(--sun);color:#1B1B1B}
+.mgrid .hol{background:var(--red);color:#fff}
+:focus-visible{outline:3px solid var(--red)}
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <h1 id="h1t">Urlaubsplaner</h1>
+    <div class="who" id="who"></div>
+    <div class="year">
+      <span id="yearLbl"></span>
+    </div>
+  </div>
+
+  <section class="panel wiz" id="wizard" hidden></section>
+  <section class="panel" id="eval" hidden></section>
+
+  <div id="app" hidden>
+  <section class="meter" aria-live="polite">
+    <div class="meter-head">
+      <span class="left-num" id="leftNum">36</span>
+      <p id="meterTxt"></p>
+    </div>
+    <div class="dots" id="dots"></div>
+  </section>
+
+  <div class="bar">
+    <p class="hint" id="hint"></p>
+    <span class="hint" id="regTxt" style="font-weight:400;color:var(--muted)">Nordrhein-Westfalen</span>
+  </div>
+
+  <div class="chips" id="chips" style="margin:14px 0 0"></div>
+
+  <section class="cal" id="cal" aria-label="Jahreskalender"></section>
+  <div class="legend">
+    <span><i style="background:var(--sun)"></i><span id="lgV">Urlaub</span></span>
+    <span><i style="background:var(--holiday)"></i><span id="lgH">Feiertag</span></span>
+    <span><i style="background:var(--weekend)"></i><span id="lgS">Sonntag</span></span>
+    <span id="legFer"><i style="background:transparent;border-bottom:3px solid var(--ferien);border-radius:0"></i><span id="lgF">Schulferien</span></span>
+  </div>
+  <section class="panel" style="margin-top:18px">
+    <h2 id="hT">Gesetzliche Feiertage in NRW</h2>
+    <ul class="entries" id="hlist"></ul>
+  </section>
+
+  <section class="panel" style="margin-top:18px">
+    <h2 id="bT">Gebucht</h2>
+    <ul class="entries" id="list"></ul>
+  </section>
+  </div>
+  <div style="margin-top:28px;text-align:center"><button class="evbtn" id="evBtn" type="button"></button></div>
+</main>
+
+<script src="config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+let MAX = 36;
+const STATES = {
+  "": "Nationwide only",
+  BW:"Baden-Württemberg", BY:"Bavaria", BE:"Berlin", BB:"Brandenburg", HB:"Bremen", HH:"Hamburg",
+  HE:"Hesse", MV:"Mecklenburg-Vorpommern", NI:"Lower Saxony", NW:"North Rhine-Westphalia",
+  RP:"Rhineland-Palatinate", SL:"Saarland", SN:"Saxony", ST:"Saxony-Anhalt", SH:"Schleswig-Holstein", TH:"Thuringia"
+};
+let state = { days: [], region: "NW", profile: null, lang: null, pid: null };
+// NRW school holidays (source: NRW Ministerium für Schule und Bildung)
+const FERIEN = [
+  {name:"easter",  from:"2026-03-30", to:"2026-04-11"},
+  {name:"whit",  from:"2026-05-26", to:"2026-05-26"},
+  {name:"summer",  from:"2026-07-20", to:"2026-09-01"},
+  {name:"autumn",  from:"2026-10-17", to:"2026-10-31"},
+  {name:"xmas", from:"2026-12-23", to:"2027-01-06"},
+  {name:"easter",  from:"2027-03-22", to:"2027-04-03"},
+  {name:"whit",  from:"2027-05-18", to:"2027-05-18"},
+  {name:"summer",  from:"2027-07-19", to:"2027-08-31"},
+  {name:"autumn",  from:"2027-10-23", to:"2027-11-06"},
+  {name:"xmas", from:"2027-12-24", to:"2028-01-08"}
+];   // days: ["YYYY-MM-DD", ...]
+const year = 2027;
+let db = null, privRef = null, pendShared = null, pendPriv = null, saveTimer = null;
+
+const I = {
+  de: {
+    title:"Urlaubsplaner", pdfBtn:"Liste als PDF (A4)", pdfErr:"PDF konnte nicht erstellt werden", colStd:"Std. Wo.", colAnspr:"Anspr.", colUsed:"Gebucht", colRest:"Rest", grp:{M:"Marktleitung",S:"stv. Marktleitung",V:"Verkäufer",A:"GFB (Aushilfen)"}, total:"Filiale gesamt (Personen pro Woche)", monthly:"Monatlicher Abbau (Tage)", weekWarn:"Rot: mehr als 2 Personen in einer Woche", ev:"Auswertung", evTitle:"Auswertung", pw:"Passwort", pwOk:"Öffnen", pwBad:"Falsches Passwort", back:"Zurück", conf:"Konflikte (Kasse max. 2, Aushilfen max. 2)", noConf:"Keine Konflikte", people:"Mitarbeiter", noProfile:"noch kein Profil", cashier:"Kasse", aush:"Aushilfen", noDb:"Keine Daten verfügbar", region:"Nordrhein-Westfalen", legVac:"Urlaub", legHol:"Feiertag", legSun:"Sonntag", legFer:"Schulferien",
+    hTitle:"Gesetzliche Feiertage in NRW", booked:"Gebucht", cal:"Jahreskalender", remove:"Entfernen", change:"Ändern", yes:"Ja", no:"Nein",
+    step:n=>`Schritt ${n} von 3`, q1:"Wie ist dein Nachname?", q2:"Arbeitest du an der Kasse?", q3:"Hast du Kinder unter 18?", ph:"Nachname",
+    types:{Aushilfe:"Aushilfe", Teilzeit:"Teilzeit", Vollzeit:"Vollzeit"}, kasse:"Kasse", kids:"Kinder unter 18", sunday:"Sonntag",
+    days:n=>n===1?"Tag":"Tage", leftTxt:(l,u)=>`${l===1?"Tag":"Tage"} übrig von ${MAX} in ${year} · ${u} gebucht`,
+    mBooked:n=>`${n} gebucht`, mLeft:"übrig", full:()=>`Alle ${MAX} Tage für ${year} sind gebucht. Entferne zuerst einen Tag.`,
+    bookedAria:", gebucht", removeAria:x=>`${x} entfernen`, wd:["Mo","Di","Mi","Do","Fr","Sa","So"],
+    hol:{ny:"Neujahr",gf:"Karfreitag",em:"Ostermontag",lab:"Tag der Arbeit",asc:"Christi Himmelfahrt",wm:"Pfingstmontag",cc:"Fronleichnam",unity:"Tag der Deutschen Einheit",as:"Allerheiligen",x1:"1. Weihnachtstag",x2:"2. Weihnachtstag"},
+    fer:{easter:"Osterferien",whit:"Pfingstferien",summer:"Sommerferien",autumn:"Herbstferien",xmas:"Weihnachtsferien"}
+  },
+  pl: {
+    title:"Planer urlopów", pdfBtn:"Lista jako PDF (A4)", pdfErr:"Nie udało się utworzyć PDF", colStd:"Godz./tydz.", colAnspr:"Przysł.", colUsed:"Użyte", colRest:"Reszta", grp:{M:"Kierownik",S:"Zastępca kierownika",V:"Sprzedawcy",A:"GFB (pracownicy dorywczy)"}, total:"Filia razem (osoby w tygodniu)", monthly:"Wykorzystanie miesięczne (dni)", weekWarn:"Czerwone: więcej niż 2 osoby w tygodniu", ev:"Raport", evTitle:"Raport", pw:"Hasło", pwOk:"Otwórz", pwBad:"Błędne hasło", back:"Wstecz", conf:"Konflikty (kasa maks. 2, dorywczy maks. 2)", noConf:"Brak konfliktów", people:"Pracownicy", noProfile:"brak profilu", cashier:"Kasa", aush:"Pracownicy dorywczy", noDb:"Brak danych", region:"Nadrenia Północna-Westfalia", legVac:"Urlop", legHol:"Święto", legSun:"Niedziela", legFer:"Ferie szkolne",
+    hTitle:"Ustawowe dni wolne w NRW", booked:"Zarezerwowane", cal:"Kalendarz roczny", remove:"Usuń", change:"Zmień", yes:"Tak", no:"Nie",
+    step:n=>`Krok ${n} z 3`, q1:"Jakie jest Twoje nazwisko?", q2:"Czy pracujesz na kasie?", q3:"Czy masz dzieci poniżej 18 lat?", ph:"Nazwisko",
+    types:{Aushilfe:"Pracownik dorywczy", Teilzeit:"Niepełny etat", Vollzeit:"Pełny etat"}, kasse:"Kasa", kids:"Dzieci poniżej 18 lat", sunday:"niedziela",
+    days:n=>n===1?"dzień":"dni", leftTxt:(l,u)=>`${l===1?"dzień pozostał":"dni pozostało"} z ${MAX} w ${year} · zarezerwowano ${u}`,
+    mBooked:n=>`zarezerwowano ${n}`, mLeft:"pozostało", full:()=>`Wszystkie ${MAX} dni w ${year} są zarezerwowane. Najpierw usuń jeden dzień.`,
+    bookedAria:", zarezerwowany", removeAria:x=>`usuń ${x}`, wd:["Pn","Wt","Śr","Cz","Pt","So","Nd"],
+    hol:{ny:"Nowy Rok",gf:"Wielki Piątek",em:"Poniedziałek Wielkanocny",lab:"Święto Pracy",asc:"Wniebowstąpienie Pańskie",wm:"Poniedziałek Zielonoświątkowy",cc:"Boże Ciało",unity:"Dzień Jedności Niemiec",as:"Wszystkich Świętych",x1:"Boże Narodzenie (1. dzień)",x2:"Boże Narodzenie (2. dzień)"},
+    fer:{easter:"Ferie wielkanocne",whit:"Ferie zielonoświątkowe",summer:"Ferie letnie",autumn:"Ferie jesienne",xmas:"Ferie bożonarodzeniowe"}
+  }
+};
+const tr = () => I[state.lang || "de"];
+const LOC = () => state.lang === "pl" ? "pl-PL" : "de-DE";
+function applyStatic(){
+  const T = tr();
+  document.documentElement.lang = state.lang || "de";
+  document.title = T.title;
+  $("evBtn").textContent = T.ev;
+  $("h1t").textContent = T.title; $("regTxt").textContent = T.region;
+  $("lgV").textContent = T.legVac; $("lgH").textContent = T.legHol; $("lgS").textContent = T.legSun; $("lgF").textContent = T.legFer;
+  $("hT").textContent = T.hTitle; $("bT").textContent = T.booked; $("cal").setAttribute("aria-label", T.cal);
+}
+// ---------- dates ----------
+const pad = n => String(n).padStart(2,"0");
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parse = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+const addDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+function easter(y){
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),
+  h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),
+  mo=Math.floor((h+l-7*m+114)/31),da=((h+l-7*m+114)%31)+1; return new Date(y,mo-1,da);
+}
+const holCache = {};
+function holidays(y, r){
+  const key = y+r; if (holCache[key]) return holCache[key];
+  const e = easter(y), s = new Set();
+  const add = d => s.add(iso(d));
+  [[0,1],[4,1],[9,3],[11,25],[11,26]].forEach(([m,d])=>add(new Date(y,m,d)));
+  [-2,1,39,50].forEach(o=>add(addDays(e,o)));                       // Good Fri, Easter Mon, Ascension, Whit Mon
+  const has = list => list.includes(r);
+  if (has(["BW","BY","ST"])) add(new Date(y,0,6));                    // Epiphany
+  if (has(["BE","MV"])) add(new Date(y,2,8));                         // Women's Day
+  if (has(["BW","BY","HE","NW","RP","SL"])) add(addDays(e,60));      // Corpus Christi
+  if (has(["SL"])) add(new Date(y,7,15));                             // Assumption
+  if (has(["TH"])) add(new Date(y,8,20));                             // Children's Day
+  if (has(["BB","HB","HH","MV","NI","SN","ST","SH","TH"])) add(new Date(y,9,31)); // Reformation Day
+  if (has(["BW","BY","NW","RP","SL"])) add(new Date(y,10,1));         // All Saints
+  if (has(["SN"])) { const d=new Date(y,10,23); while(d.getDay()!==3) d.setDate(d.getDate()-1); add(d); } // Repentance Day
+  return holCache[key] = s;
+}
+const isWeekend = d => d.getDay()===0;   // Einzelhandel: Samstag ist Werktag
+const isHoliday = d => holidays(d.getFullYear(), state.region).has(iso(d));
+
+function holidayList(y){
+  const e = easter(y);
+  return [
+    ["ny", new Date(y,0,1)], ["gf", addDays(e,-2)], ["em", addDays(e,1)],
+    ["lab", new Date(y,4,1)], ["asc", addDays(e,39)], ["wm", addDays(e,50)],
+    ["cc", addDays(e,60)], ["unity", new Date(y,9,3)], ["as", new Date(y,10,1)],
+    ["x1", new Date(y,11,25)], ["x2", new Date(y,11,26)]
+  ].map(([id,d]) => ({id, d})).sort((a,b)=>a.d-b.d);
+}
+const bookable = d => !isWeekend(d) && !isHoliday(d);
+const daysIn = y => state.days.filter(k => k.startsWith(y+"-"));
+
+function personMax(){ const m = state.pid && STAFF.find(q => slug(q.n) === state.pid); return m && m.a ? m.a : 36; }
+const norm = t => t.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+const slug = n => norm(n).replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+const yn = v => v === "Ja" || v === "Nein";
+
+// older versions stored ranges; turn them into single days
+function migrate(data){
+  const out = { days: Array.isArray(data.days) ? data.days.slice() : [], region: "NW", profile: data.profile || null, lang: data.lang || null,
+    pid: data.pid || (data.profile && data.profile.name ? slug(String(data.profile.name).split(" ")[0]) : null) };
+  if (Array.isArray(data.entries)) data.entries.forEach(en => {
+    let d = parse(en.from), end = parse(en.to);
+    while (d <= end){ const k = iso(d); if (!out.days.includes(k)) out.days.push(k); d = addDays(d,1); }
+  });
+  return out;
+}
+
+// ---------- storage ----------
+// Reset-Marke: ändert sich die ID, startet jeder Account beim nächsten Öffnen frisch
+const RESET_ID = "2026-10-29-a";
+function saveLocal(){ try{ localStorage.setItem("vacation-planner", JSON.stringify({ ...state, reset: RESET_ID })); }catch(e){} }
+function loadLocal(){ try{ const v = localStorage.getItem("vacation-planner"); if (v){ const o = JSON.parse(v); if (o.reset === RESET_ID) state = migrate(o); } }catch(e){} }
+// Jeder Nachname = ein Profil, gemeinsam gespeichert unter profiles/<nachname>
+function save(){
+  saveLocal();
+  if (state.pid && state.profile && state.profile.name){
+    const pr = state.profile;
+    pendShared = { pid: state.pid, data: { name: pr.name, type: pr.type, kasse: pr.kasse || null, kinder: pr.kinder || null, year: year, days: state.days.slice(), updated: Date.now() } };
+  }
+  pendPriv = { lang: state.lang, pid: state.pid, reset: RESET_ID };
+  clearTimeout(saveTimer); saveTimer = setTimeout(flush, 600);
+}
+async function flush(){
+  if (!db) return;
+  const sh = pendShared, pv = pendPriv; pendShared = pendPriv = null;
+  try{
+    if (pv && privRef) await privRef.set(pv);
+    if (sh) await db.doc("profiles/" + sh.pid).set(sh.data);
+  }catch(e){ console.warn("Sync failed", e); }
+}
+loadLocal();
+
+function makeRtdb(base){
+  const u = p => base.replace(/\/+$/, "") + "/" + p + ".json";
+  return {
+    doc: p => ({
+      get: async () => { const r = await fetch(u(p)); if (!r.ok) throw new Error("db " + r.status); const v = await r.json(); return { exists: v !== null && v !== undefined, data: () => v }; },
+      set: async d => { const r = await fetch(u(p), { method: "PUT", body: JSON.stringify(d) }); if (!r.ok) throw new Error("db " + r.status); }
+    }),
+    collection: c => ({ get: async () => { const r = await fetch(u(c)); if (!r.ok) throw new Error("db " + r.status); const v = (await r.json()) || {}; return { docs: Object.keys(v).map(id => ({ id, data: () => v[id] })) }; } })
+  };
+}
+(async () => {
+  try{
+    await Promise.resolve();   // erst nach dem kompletten Laden des Skripts starten
+    let d = null, id = null;
+    if (window.claude && window.claude.use){
+      d = await claude.use("db");
+      const user = await claude.use("user");
+      id = user ? await user.id() : null;
+    } else if (window.APP_CONFIG && window.APP_CONFIG.databaseURL){
+      d = makeRtdb(window.APP_CONFIG.databaseURL);
+    }
+    if (!d) return;
+    db = d;
+    if (id){
+      privRef = db.doc("data/users/" + id + "/settings");
+      const ps = await privRef.get();
+      const pd = ps.exists ? (ps.data() || {}) : null;
+      if (pd && pd.reset === RESET_ID){ if (!state.lang && pd.lang) state.lang = pd.lang; if (!state.pid && pd.pid) state.pid = pd.pid; }
+      else pendPriv = { lang: state.lang, pid: state.pid, reset: RESET_ID };   // alter Stand vor dem Reset: verwerfen
+    }
+    let needPush = false;
+    if (state.pid){
+      const sn = await db.doc("profiles/" + state.pid).get();
+      if (sn.exists){
+        const x = sn.data() || {}, m = STAFF.find(q => slug(q.n) === state.pid);
+        state.days = Array.isArray(x.days) ? x.days.filter(k => typeof k === "string") : [];
+        state.profile = { name: x.name || (state.profile && state.profile.name) || (m ? m.n : state.pid), type: m ? m.t : x.type,
+                          kasse: yn(x.kasse) ? x.kasse : null, kinder: yn(x.kinder) ? x.kinder : null };
+      } else if (state.profile) needPush = true;
+    }
+    saveLocal(); render();
+    if (needPush) save(); else if (pendShared || pendPriv) flush();
+  }catch(e){ console.warn("db unavailable", e); }
+})();
+
+// ---------- UI ----------
+const $ = id => document.getElementById(id);
+const fmt = s => parse(s).toLocaleDateString(LOC(),{weekday:"short",day:"numeric",month:"short"});
+const DEFAULT_HINT = "";
+let hintTimer;
+function hint(msg, err){
+  const h = $("hint"); h.textContent = msg; h.classList.toggle("err", !!err);
+  clearTimeout(hintTimer); if (err) hintTimer = setTimeout(()=>hint(DEFAULT_HINT), 3500);
+}
+
+function toggle(k){
+  const i = state.days.indexOf(k);
+  if (i >= 0) state.days.splice(i,1);
+  else {
+    if (daysIn(year).length >= MAX){ hint(tr().full(), true); return; }
+    state.days.push(k);
+  }
+  save(); render();
+}
+
+// group consecutive bookable days into runs for the list
+function runs(list){
+  const sorted = list.slice().sort(), out = [];
+  sorted.forEach(k => {
+    const last = out[out.length-1];
+    if (last){
+      let d = addDays(parse(last.to),1);
+      while (!bookable(d) && iso(d) < k) d = addDays(d,1);
+      if (iso(d) === k){ last.to = k; last.days.push(k); return; }
+    }
+    out.push({ from:k, to:k, days:[k] });
+  });
+  return out;
+}
+
+// Mitarbeiter laut Personaleinsatzplanung (Woche 44): n = Nachname, v = Vorname, t = Beschäftigung
+const STAFF = [
+  // g: M Marktleitung, S stv. Marktleitung, V Verkäufer, A GFB (Aushilfen) · h: Std. pro Woche · a: Urlaubsanspruch 2027
+  {n:"Jahja", v:"Fatima", t:"Vollzeit", g:"M", h:37.5, a:36},
+  {n:"Milicevic", v:"Lukas", t:"Vollzeit", g:"S", h:37.5, a:36}, {n:"Pader", v:"Ralph-Christian", t:"Vollzeit", g:"S", h:37.5, a:36},
+  {n:"Breitkopf", v:"Iris", t:"Teilzeit", g:"V", h:24, a:36}, {n:"Dahmke", v:"", t:"Teilzeit", g:"V", h:24, a:36},
+  {n:"Esser", v:"Pierre", t:"Teilzeit", g:"V", h:24, a:36}, {n:"Fussbahn", v:"Elke", t:"Teilzeit", g:"V", h:21, a:36},
+  {n:"Peters", v:"Tanja", t:"Teilzeit", g:"V", h:30, a:36}, {n:"Twardzik", v:"Anna Zofia", t:"Teilzeit", g:"V", h:24, a:36},
+  {n:"Yazir", v:"Mütep", t:"Teilzeit", g:"V", h:21, a:36}, {n:"Gündüz", v:"Dilek", t:"Teilzeit", g:"V", h:15, a:36},
+  {n:"Sawotschkin", v:"Iraida", t:"Teilzeit", g:"V", h:20, a:42},
+  {n:"Wiesmann", v:"Noah Anand", t:"Teilzeit", g:"V", h:24, a:36}, {n:"Jakob", v:"Torben Kay", t:"Teilzeit", g:"V", h:30, a:36},
+  {n:"Bontempi", v:"", t:"Teilzeit", g:"V", h:24, a:36},
+  {n:"Aldinger", v:"", t:"Aushilfe", g:"A", h:8, a:36}, {n:"Arikan", v:"Tülay", t:"Aushilfe", g:"A", h:8, a:36},
+  {n:"Brylka", v:"Gabriela", t:"Aushilfe", g:"A", h:8, a:36}, {n:"Buhl", v:"Manuela", t:"Aushilfe", g:"A", h:8, a:36},
+  {n:"Delin", v:"", t:"Aushilfe", g:"A", h:8, a:36}, {n:"Fiedler", v:"", t:"Aushilfe", g:"A", h:8, a:36},
+  {n:"Güngör", v:"Bilal", t:"Aushilfe", g:"A", h:8, a:36}, {n:"Madej", v:"Kasper", t:"Aushilfe", g:"A", h:8, a:36},
+  {n:"Ort", v:"Alexander", t:"Aushilfe", g:"A", h:8, a:36}, {n:"Pohlmann", v:"", t:"Aushilfe", g:"A", h:8, a:36}
+].map((m,i) => ({...m, o:i})).sort((a,b) => a.n.localeCompare(b.n, "de"));
+const LETTERS = [...new Set(STAFF.map(x => norm(x.n)[0].toUpperCase()))].sort();
+// ---- A4-Urlaubsplanwunsch-Liste als PDF, direkt aus den Profil-Daten
+function buildSheetPdf(JS, by){
+  const doc = new JS({ orientation:"landscape", unit:"pt", format:"a4" });
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+  const R = (x,y,w,h,m) => doc.rect(x, H-y-h, w, h, m), T = (t,x,y,al) => doc.text(String(t), x, H-y, { align: al || "left" });
+  const L = (x1,y1,x2,y2) => doc.line(x1, H-y1, x2, H-y2);
+  const gray = g => { const v = Math.round(g*255); doc.setFillColor(v,v,v); };
+  const FONT = (b,sz) => { doc.setFont("helvetica", b ? "bold" : "normal"); doc.setFontSize(sz); };
+  doc.setTextColor(0,0,0); doc.setDrawColor(0,0,0);
+  // Zeilen wie auf der Papierliste, Rest = Anspruch minus gebuchte Tage
+  const D = k => { const r = by[k]; return r && Array.isArray(r.days) ? r.days.filter(x => typeof x === "string" && x.startsWith(year + "-")) : []; };
+  const U = k => D(k).length, sumU = ks => ks.reduce((a,k) => a + U(k), 0);
+  const monIso = k => iso(addDays(parse(k), -((parse(k).getDay()+6)%7)));
+  const wk = k => { const w = {}; D(k).forEach(d => { const m = monIso(d); w[m] = (w[m]||0) + 1; }); return w; };
+  const mem = (k,name,std,an) => ({ kind:"m", name, std, an:String(an), ges:String(an), rest:String(an - U(k)), wk:wk(k) });
+  const BL = { kind:"b", name:"", std:"", an:"", ges:"0", rest:"0", wk:{} };
+  const grp = (name,std,an,ges,ks) => ({ kind:"g", name, std, an:String(an), ges:String(ges), rest:String(ges - sumU(ks)), wk:{} });
+  const KS = ["jahja","milicevic","pader","tutuncu","breitkopf","dahmke","esser","fussbahn","peters","twardzik","yazir","gunduz","sawotschkin","aldinger","arikan","brylka","buhl","delin","fiedler","gungor","madej","ort","pohlmann"];
+  const rows = [ mem("jahja","Jahja","37,5",36),
+    grp("stv. Marktleitung","99",108,108,["milicevic","pader","tutuncu"]),
+    mem("milicevic","Milicevic","37,5",36), mem("pader","Pader","37,5",36), mem("tutuncu","Tütüncü","24",36), BL,
+    grp("Verkäufer","168",252,294,["breitkopf","dahmke","esser","fussbahn","peters","twardzik","yazir","sawotschkin"]),
+    mem("breitkopf","Breitkopf","24",36), mem("dahmke","Dahmke","24",36), mem("esser","Esser P.","24",36), mem("fussbahn","Fussbahn","21",36),
+    mem("peters","Peters","30",36), mem("twardzik","Twardzik","24",36), mem("yazir","Yazir","21",36),
+    BL,BL,BL,BL,BL,
+    { kind:"m", name:"Gündüz 15 Elt.", std:"15", an:"", ges:"0", rest:"0", wk:{} },
+    { ...mem("sawotschkin","Sawotschkin kol","20",42) }, BL,
+    grp("GFB","96",360,360,["aldinger","arikan","brylka","buhl","delin","fiedler","gungor","madej","ort","pohlmann"]),
+    mem("aldinger","Aldinger","8",36), mem("arikan","Arikan","8",36), mem("brylka","Brylka","8",36), mem("buhl","Buhl","8",36),
+    mem("delin","Delin","8",36), mem("fiedler","Fiedler","8",36), mem("gungor","Güngör","8",36), mem("madej","Madej","8",36),
+    mem("ort","Ort","8",36), mem("pohlmann","Pohlmann","8",36), BL,BL,BL,BL,BL,BL ];
+  const weekTot = {}, monthTot = new Array(12).fill(0);
+  KS.forEach(k => D(k).forEach(d => { const m = monIso(d); weekTot[m] = (weekTot[m]||0) + 1; monthTot[Number(d.slice(5,7))-1]++; }));
+  const totRest = 798 - sumU(KS);
+
+  const M = 18, GL = 0.88, GM = 0.78, GD = 0.62;
+  const cwN = 80, cwS = 21, cwV = 19, cwA = 21, cwG = 21, cwR = 30;
+  const leftW = cwN+cwS+cwV+cwA+cwG, weeksW = W-2*M-leftW-cwR, cw = weeksW/53;
+  const x0 = M, xw = x0+leftW, xr = xw+weeksW, xend = xr+cwR, top = H-M;
+  const mons = []; for (let i=0;i<53;i++) mons.push(addDays(new Date(year-1,11,28), 7*i));
+  const HOL = new Set([...holidays(year-1,"NW"), ...holidays(year,"NW")]);
+  const isoW = d => { const x = new Date(d); x.setDate(x.getDate()+4-(x.getDay()||7)); return Math.ceil(((x - new Date(x.getFullYear(),0,1))/86400000+1)/7); };
+
+  FONT(1,11); T("Urlaubsplanwünsche " + year, x0, top-10); T("Filiale", x0, top-23); T("6544", x0+52, top-23);
+  FONT(0,7); T("Stand: " + new Date().toLocaleDateString("de-DE") + " · Daten aus dem Urlaubsplaner", xend, top-10, "right");
+  const dayH = 6.6, hy = top-30;
+  doc.setLineWidth(0.3);
+  ["Mo","Di","Mi","Do","Fr","Sa","So"].forEach((lab,r) => {
+    const y = hy-(r+1)*dayH; FONT(0,5.5); T(lab, xw-12, y+1.8);
+    mons.forEach((m,i) => { const d = addDays(m,r), x = xw+i*cw;
+      if (HOL.has(iso(d))){ gray(GD); R(x,y,cw,dayH,"F"); }
+      FONT(0,5.5); T(d.getDate(), x+cw/2, y+1.8, "center"); });
+  });
+  R(xw, hy-7*dayH, weeksW, 7*dayH, "S");
+  const kwY = hy-7*dayH-8;
+  gray(GL); R(xw,kwY,weeksW,8,"F"); FONT(1,5.5); T("KW", x0+cwN-3, kwY+2, "right");
+  mons.forEach((m,i) => T(isoW(addDays(m,3)), xw+i*cw+cw/2, kwY+2, "center"));
+  R(xw,kwY,weeksW,8,"S");
+  const moY = kwY-8, MN = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+  FONT(1,6); T("Monat", x0+cwN-3, moY+2, "right");
+  { let i = 0; while (i < 53){ const mm = addDays(mons[i],3).getMonth(); let j = i;
+      while (j+1 < 53 && addDays(mons[j+1],3).getMonth() === mm) j++;
+      const xa = xw+i*cw, wd = (j-i+1)*cw; gray(GL); R(xa,moY,wd,8,"F"); FONT(1,6);
+      if (doc.getTextWidth(MN[mm]) < wd-2) T(MN[mm], xa+wd/2, moY+2, "center");
+      R(xa,moY,wd,8,"S"); i = j+1; } }
+  const hdrTop = hy, hdrBot = moY;
+  R(x0,hdrBot,leftW,hdrTop-hdrBot,"S"); FONT(1,6); T("Mitarbeiter", x0+2, hdrBot+20);
+  { let cx = x0+cwN; [["Std.","Wo.",cwS],["Rest","VJ",cwV],["Anspr.","2027",cwA],["Ges.","2027",cwG]].forEach(([a,b,w]) => {
+      L(cx,hdrBot,cx,hdrTop); FONT(1,5.5); T(a,cx+w/2,hdrBot+10,"center"); T(b,cx+w/2,hdrBot+3,"center"); cx += w; }); }
+  R(xr,hdrBot,cwR,hdrTop-hdrBot,"S"); FONT(1,6); T("Rest", xr+cwR/2, hdrBot+10, "center"); T("2027", xr+cwR/2, hdrBot+3, "center");
+
+  const rh = 9.1; let y = hdrBot; doc.setLineWidth(0.25);
+  rows.forEach(r => {
+    y -= rh;
+    if (r.kind === "g"){ gray(GM); R(x0,y,xend-x0,rh,"F"); }
+    FONT(r.kind === "g", 6.3); T(r.name, x0+2, y+rh/2-2.2);
+    let cx = x0+cwN;
+    [[r.std,cwS],["",cwV],[r.an,cwA],[r.ges,cwG]].forEach(([v,w]) => { T(v, cx+w/2, y+rh/2-2.2, "center"); cx += w; });
+    T(r.rest, xr+cwR/2, y+rh/2-2.2, "center");
+    mons.forEach((m,i) => { const v = r.wk[iso(m)]; if (v){ gray(0.72); R(xw+i*cw,y,cw,rh,"F"); FONT(1,6.5); T(v, xw+i*cw+cw/2, y+rh/2-2.3, "center"); } });
+    L(x0,y,xend,y);
+    for (let k=0;k<=53;k++) L(xw+k*cw,y,xw+k*cw,y+rh);
+    cx = x0; [cwN,cwS,cwV,cwA,cwG].forEach(w => { L(cx,y,cx,y+rh); cx += w; });
+    L(cx,y,cx,y+rh); L(xend,y,xend,y+rh);
+  });
+  const bodyBot = y; doc.setLineWidth(0.8); R(x0,bodyBot,xend-x0,hdrBot-bodyBot,"S"); L(xw,hdrBot,xw,bodyBot); L(xr,hdrBot,xr,bodyBot);
+  doc.setLineWidth(0.25);
+  const y1 = bodyBot-rh; gray(GL); R(x0,y1,xend-x0,rh,"F"); FONT(1,6.3); T("Filiale Gesamt", x0+2, y1+2.6);
+  { let cx = x0+cwN; [["312,5",cwS],["0",cwV],["432",cwA],["762",cwG]].forEach(([v,w]) => { T(v, cx+w/2, y1+2.6, "center"); cx += w; }); }
+  R(x0,y1,xend-x0,rh,"S");
+  mons.forEach((m,i) => { const v = weekTot[iso(m)]; if (v){ FONT(1,7); T(v, xw+i*cw+cw/2, y1+2.6, "center"); } });
+  for (let k=0;k<=53;k++) L(xw+k*cw,y1,xw+k*cw,y1+rh);
+  const y2 = y1-rh; gray(GL); R(x0,y2,xend-x0,rh,"F"); FONT(1,6.3); T("Monatlicher Abbau", x0+2, y2+2.6); T(totRest, xr+cwR/2, y2+2.6, "center");
+  R(x0,y2,xend-x0,rh,"S"); for (let k=0;k<=53;k++) L(xw+k*cw,y2,xw+k*cw,y2+rh); L(xr,y2,xr,y1+rh);
+  { let i = 0; while (i < 53){ const mm = addDays(mons[i],3).getMonth(); let j = i;
+      while (j+1 < 53 && addDays(mons[j+1],3).getMonth() === mm) j++;
+      if (monthTot[mm] && j > i){ FONT(1,7); T(monthTot[mm], xw+i*cw+(j-i+1)*cw/2, y2+2.6, "center"); } i = j+1; } }
+  const ay = y2-14; FONT(1,8); T("Ablauf:", x0, ay);
+  const lines = [
+    "1. Bitte Urlaubswünsche schriftlich einreichen: Gesamter Anspruch + Resttage vom Vorjahr",
+    "2. Hier die Wünsche dann mit Bleistift in die Liste eintragen",
+    "3. Bei mehr als 2 Personen in einer Woche miteinander sprechen.",
+    "4. In der Filiale zusammen schauen, dass es keine Engpässe gibt.",
+    "5. Diese Urlaubsplanwünsche werden vom Verkaufsleiter / RVL kontrolliert. Sollten diese Bedenken haben, gibt es weitere Gespräche, um einen guten Plan für 2027 zu sichern.",
+    "6. Zum 15. Dezember bekommt der Betriebsrat diesen Urlaubsplan. Er kontrolliert auf Vollzähligkeit und geht davon aus, dass alle Gespräche entsprechend geführt wurden.",
+    "7. Dieser Urlaubsplan wird erst ab dem 01.01.2026 gültig. Das heißt nicht vorher buchen, es könnte sich vorher immer noch etwas ändern.",
+    "8. Auf jeden Fall Anfang des Jahres den Urlaubsplan sichten. Sollte es doch noch zu Unstimmigkeiten kommen, fragen Sie genau nach."
+  ];
+  FONT(0,7.2); lines.forEach((t,i) => T(t, x0+8, ay-11-i*9.2));
+  return doc.output("arraybuffer");
+}
+
+let evMode = 0;   // 0 zu, 1 Passwort, 2 Auswertung
+const EV_PIN = "2310";
+function showEval(){
+  const T = tr(), box = $("eval");
+  $("app").hidden = true; $("wizard").hidden = true; $("who").innerHTML = ""; $("yearLbl").parentElement.hidden = true;
+  box.className = "panel ev"; box.innerHTML = "";
+  const back = document.createElement("button"); back.type="button"; back.className="back"; back.textContent = T.back;
+  back.onclick = () => { evMode = 0; render(); };
+  box.appendChild(back);
+  if (evMode === 1){
+    const h = document.createElement("h2"); h.textContent = T.evTitle; box.appendChild(h);
+    const row = document.createElement("div"); row.className = "pwrow";
+    const inp = document.createElement("input"); inp.type="password"; inp.inputMode="numeric"; inp.autocomplete="off"; inp.placeholder=T.pw; inp.setAttribute("aria-label",T.pw);
+    const ok = document.createElement("button"); ok.type="button"; ok.textContent = T.pwOk;
+    const err = document.createElement("p"); err.className = "bad";
+    const go = () => { if (inp.value === EV_PIN){ evMode = 2; render(); } else { err.textContent = T.pwBad; inp.value = ""; } };
+    ok.onclick = go; inp.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
+    row.append(inp, ok); box.append(row, err);
+    return;
+  }
+  fillEval(box);
+}
+async function fillEval(box){
+  const T = tr();
+  const h = document.createElement("h2"); h.textContent = `${T.evTitle} ${year}`; box.appendChild(h);
+  let docs = null;
+  if (db){ try{ docs = (await db.collection("profiles").get()).docs; }catch(e){ console.warn(e); } }
+  if (!docs){ const p = document.createElement("p"); p.className="sub"; p.textContent = T.noDb; box.appendChild(p); return; }
+  const by = {}; docs.forEach(d => { by[d.id] = d.data() || {}; });
+  if (window.jspdf){
+    const pb = document.createElement("button"); pb.type = "button"; pb.className = "back"; pb.textContent = T.pdfBtn; pb.style.margin = "6px 0 0 8px";
+    const pe = document.createElement("span"); pe.className = "bad"; pe.style.marginLeft = "8px";
+    pb.onclick = async () => {
+      pe.textContent = "";
+      try{
+        const filename = `Urlaubsplanwuensche_${year}_A4.pdf`, data = buildSheetPdf(window.jspdf.jsPDF, by);
+        const dl = window.claude && window.claude.use ? await claude.use("downloads") : null;
+        if (dl) await dl.save({ filename, data });
+        else {
+          const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([data], { type:"application/pdf" })); a.download = filename;
+          document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        }
+      }catch(e){ if (!e || e.code !== "declined"){ pe.textContent = T.pdfErr; console.warn(e); } }
+    };
+    h.after(pb, pe);
+  }
+  const people = STAFF.map(m => {
+    const r = by[slug(m.n)] || null;
+    const days = r && Array.isArray(r.days) ? r.days.filter(k => typeof k === "string" && k.startsWith(year + "-")).sort() : [];
+    return { m, r, days };
+  });
+  // Konflikte: Kasse max. 2 gleichzeitig, Aushilfen (nicht in Kasse) max. 2 gleichzeitig
+  const per = {};
+  people.forEach(p => p.days.forEach(k => {
+    const g = p.m.t === "Aushilfe" ? "a" : (p.r && p.r.kasse === "Ja" ? "k" : null);
+    if (!g) return;
+    (per[k] = per[k] || { k: [], a: [] })[g].push(p.m.n);
+  }));
+  const conflicts = Object.keys(per).sort().filter(k => per[k].k.length > 2 || per[k].a.length > 2);
+  const h1 = document.createElement("h2"); h1.textContent = T.conf; box.appendChild(h1);
+  const ul1 = document.createElement("ul"); ul1.className = "entries";
+  if (!conflicts.length){ const li = document.createElement("li"); li.textContent = T.noConf; ul1.appendChild(li); }
+  conflicts.forEach(k => {
+    const li = document.createElement("li"); const d = document.createElement("div");
+    const w = document.createElement("div"); w.className = "when bad"; w.textContent = fmt(k);
+    d.appendChild(w);
+    [["k", T.cashier], ["a", T.aush]].forEach(([g, lbl]) => {
+      if (per[k][g].length > 2){ const x = document.createElement("div"); x.className = "sub"; x.textContent = `${lbl} (${per[k][g].length}): ${per[k][g].join(", ")}`; d.appendChild(x); }
+    });
+    li.appendChild(d); ul1.appendChild(li);
+  });
+  box.appendChild(ul1);
+  // Tabelle wie auf der Urlaubsplanwunsch-Liste: pro Woche (KW) die Urlaubstage je Mitarbeiter
+  const mons = []; { let m = new Date(year-1, 11, 28); for (let i=0;i<53;i++){ mons.push(iso(m)); m = addDays(m,7); } }
+  const isoWeek = d => { const x = new Date(d); x.setDate(x.getDate()+4-(x.getDay()||7)); return Math.ceil(((x - new Date(x.getFullYear(),0,1))/86400000+1)/7); };
+  const monOf = k => iso(addDays(parse(k), -((parse(k).getDay()+6)%7)));
+  const used = p => p.days.length;
+  const ordered = people.slice().sort((a,b) => ["M","S","V","A"].indexOf(a.m.g) - ["M","S","V","A"].indexOf(b.m.g) || a.m.o - b.m.o);
+  const weekCount = {}, weekPeople = {}, monthSum = new Array(12).fill(0);
+  const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
+  const tw = mk("div","tw"), tb = mk("table"), hd = mk("tr");
+  hd.append(mk("th","nm",T.hTitleStaff || T.people), mk("th","",T.colStd), mk("th","",T.colAnspr), mk("th","",T.colUsed), mk("th","",T.colRest));
+  mons.forEach(m => { const th = mk("th","",isoWeek(parse(m))); th.title = fmt(m); hd.appendChild(th); });
+  tb.appendChild(hd);
+  let lastG = null;
+  ordered.forEach(p => {
+    if (p.m.g !== lastG){
+      lastG = p.m.g;
+      const members = ordered.filter(q => q.m.g === lastG);
+      const gr = mk("tr","grp");
+      gr.append(mk("td","nm",T.grp[lastG]), mk("td","",members.reduce((a,q)=>a+q.m.h,0)), mk("td","",members.reduce((a,q)=>a+q.m.a,0)), mk("td","",members.reduce((a,q)=>a+used(q),0)), mk("td","",members.reduce((a,q)=>a+q.m.a-used(q),0)));
+      for (let i=0;i<mons.length;i++) gr.appendChild(mk("td",""));
+      tb.appendChild(gr);
+    }
+    const tr_ = mk("tr");
+    const perWeek = {};
+    p.days.forEach(k => { const w = monOf(k); perWeek[w] = (perWeek[w]||0) + 1; weekCount[w] = (weekCount[w]||0) + 1; (weekPeople[w] = weekPeople[w] || new Set()).add(p.m.n); monthSum[Number(k.slice(5,7))-1]++; });
+    tr_.append(mk("td", "nm" + (p.r ? "" : " none"), p.m.n + (p.m.v ? " " + p.m.v.charAt(0) + "." : "")), mk("td","",p.m.h), mk("td","",p.m.a), mk("td","",p.r ? used(p) : ""), mk("td","",p.r ? p.m.a - used(p) : ""));
+    mons.forEach(m => tr_.appendChild(mk("td", perWeek[m] ? "v" : "", perWeek[m] || "")));
+    tb.appendChild(tr_);
+  });
+  const tot = mk("tr","tot");
+  tot.append(mk("td","nm",T.total), mk("td","",""), mk("td","",""), mk("td","",ordered.reduce((a,q)=>a+used(q),0)), mk("td","",""));
+  mons.forEach(m => { const c = weekPeople[m] ? weekPeople[m].size : 0; const td = mk("td", c > 2 ? "over" : "", c || ""); if (weekPeople[m]) td.title = [...weekPeople[m]].join(", "); tot.appendChild(td); });
+  tb.appendChild(tot);
+  tw.appendChild(tb); box.appendChild(tw);
+  const note = mk("p","sub",T.weekWarn); box.appendChild(note);
+  const hm = mk("h2","",T.monthly); box.appendChild(hm);
+  const mt = mk("div","tw"), tm = mk("table"), r1 = mk("tr"), r2 = mk("tr");
+  monthSum.forEach((v,i) => { r1.appendChild(mk("th","",new Date(year,i,1).toLocaleDateString(LOC(),{month:"short"}))); r2.appendChild(mk("td","",v)); });
+  tm.append(r1,r2); mt.appendChild(tm); box.appendChild(mt);
+}
+$("evBtn").onclick = () => { evMode = evMode ? 0 : 1; render(); };
+let wizStep = 1;
+function setProfile(p){ state.profile = p; save(); wizStep = 1; render(); }
+function wizButtons(box, labels, cb, cls){
+  const o = document.createElement("div"); o.className = "opts " + cls;
+  labels.forEach(l => { const b = document.createElement("button"); b.type="button"; b.className="opt"; b.textContent=l; b.onclick=()=>cb(l); o.appendChild(b); });
+  box.appendChild(o);
+}
+function view(){
+  const w = $("wizard"), app = $("app"), who = $("who");
+  const pr = state.profile;
+  const T = tr();
+  const yesno = v => v === "Ja" ? T.yes : T.no;
+  if (!state.lang){
+    $("yearLbl").parentElement.hidden = true; app.hidden = true; w.hidden = false; who.innerHTML = "";
+    w.innerHTML = '<h2>Sprache / Język</h2>';
+    wizButtons(w, ["Deutsch","Polski"], l => { state.lang = l === "Polski" ? "pl" : "de"; save(); render(); }, "two");
+    return true;
+  }
+  const done = pr && pr.name && pr.type && (pr.type === "Aushilfe" || (yn(pr.kasse) && yn(pr.kinder)));
+  who.innerHTML = "";
+  $("yearLbl").parentElement.hidden = !done;
+  if (done){
+    w.hidden = true; app.hidden = false;
+    const t = document.createElement("span");
+    const b = document.createElement("b"); b.textContent = pr.name;
+    t.append(b, ` · ${T.types[pr.type]}` + (pr.type === "Aushilfe" ? "" : ` · ${T.kasse}: ${yesno(pr.kasse)} · ${T.kids}: ${yesno(pr.kinder)}`));
+    const ch = document.createElement("button"); ch.type="button"; ch.textContent=T.change;
+    ch.onclick = () => { state.profile = null; state.pid = null; state.days = []; state.lang = null; wizStep = 1; save(); render(); };
+    who.append(t, ch);
+    return false;
+  }
+  app.hidden = true; w.hidden = false; w.innerHTML = "";
+  if (pr && pr.name && pr.type !== "Aushilfe" && wizStep === 1) wizStep = pr.kasse ? 3 : 2;   // bereits Gewähltes nicht erneut fragen
+  if (wizStep === 1 || !pr){
+    w.innerHTML = `<div class="steps">${T.step(1)}</div><h2>${T.q1}</h2>`;
+    const inp = document.createElement("input"); inp.type="text"; inp.inputMode="text"; inp.enterKeyHint="done"; inp.setAttribute("autocapitalize","words"); inp.spellcheck=false; inp.className="search"; inp.placeholder=T.ph; inp.autocomplete="off"; inp.setAttribute("aria-label",T.ph);
+    const res = document.createElement("div"); res.className = "names";
+    const pick = async m => {
+      const full = m.n + (m.v ? " " + m.v : ""), pid = slug(m.n);
+      let data = null;
+      if (db){ try{ const sn = await db.doc("profiles/" + pid).get(); if (sn.exists) data = sn.data(); }catch(e){} }
+      state.pid = pid;
+      state.days = data && Array.isArray(data.days) ? data.days.filter(k => typeof k === "string") : [];
+      state.profile = { name: full, type: m.t, kasse: data && yn(data.kasse) ? data.kasse : null, kinder: data && yn(data.kinder) ? data.kinder : null };
+      save(); wizStep = 1; render();   // schon beantwortete Fragen werden übersprungen, Aushilfe fragt nichts
+    };
+    const search = () => {
+      const q = norm(inp.value.trim());
+      res.innerHTML = "";
+      if (!q) return;
+      STAFF.filter(m => norm(m.n).startsWith(q)).forEach(m => {
+        const b = document.createElement("button"); b.type="button"; b.className="opt";
+        b.append(m.n + (m.v ? " " + m.v : ""));
+        const sp = document.createElement("span"); sp.textContent = T.types[m.t]; b.appendChild(sp);
+        b.onclick = () => pick(m); res.appendChild(b);
+      });
+    };
+    inp.addEventListener("input", search);
+    w.append(inp, res);
+  } else if (wizStep === 2){
+    w.innerHTML = `<div class="steps">${T.step(2)}</div><h2>${T.q2}</h2>`;
+    wizButtons(w, [T.yes, T.no], l => { state.profile = { ...pr, kasse: l === T.yes ? "Ja" : "Nein", kinder:null }; wizStep = 3; render(); }, "two");
+  } else {
+    w.innerHTML = `<div class="steps">${T.step(3)}</div><h2>${T.q3}</h2>`;
+    wizButtons(w, [T.yes, T.no], l => setProfile({ ...pr, kinder: l === T.yes ? "Ja" : "Nein" }), "two");
+  }
+  return true;
+}
+
+function render(){
+  MAX = personMax();
+  applyStatic();
+  $("eval").hidden = !evMode;
+  if (evMode){ showEval(); return; }
+  if (view()) return;
+  // drop days that became holidays after a region change
+  state.days = state.days.filter(k => bookable(parse(k)));
+  $("yearLbl").textContent = year;
+  const mine = daysIn(year), used = mine.length, left = MAX - used, booked = new Set(mine);
+  $("leftNum").textContent = left;
+  $("meterTxt").textContent = tr().leftTxt(left, used);
+  const dots = $("dots"); dots.innerHTML = "";
+  for (let i=0;i<MAX;i++){ const d=document.createElement("div"); d.className="dot"+(i<used?" used":""); dots.appendChild(d); }
+
+  const list = $("list"); list.innerHTML = "";
+  const rs = runs(mine);
+  rs.forEach(r => {
+    const li = document.createElement("li");
+    const w = document.createElement("div"); w.className="when"; w.textContent = r.from===r.to ? fmt(r.from) : `${fmt(r.from)} – ${fmt(r.to)}`;
+    const right = document.createElement("div"); right.style.cssText="display:flex;gap:8px;align-items:center";
+    const badge = document.createElement("span"); badge.className="days"; badge.textContent = `${r.days.length} ${tr().days(r.days.length)}`;
+    const del = document.createElement("button"); del.className="del"; del.textContent=tr().remove; del.setAttribute("aria-label",tr().removeAria(w.textContent));
+    del.onclick = () => { state.days = state.days.filter(k => !r.days.includes(k)); save(); render(); };
+    right.append(badge, del); li.append(w, right); list.appendChild(li);
+  });
+
+  const hl = $("hlist"); hl.innerHTML = "";
+  holidayList(year).forEach(h => {
+    const li = document.createElement("li");
+    const n = document.createElement("div"); n.className = "when"; n.textContent = tr().hol[h.id];
+    const dt = document.createElement("span"); dt.className = "note";
+    dt.textContent = h.d.toLocaleDateString(LOC(),{weekday:"long",day:"numeric",month:"long"}) + (h.d.getDay()===0 ? " · " + tr().sunday : "");
+    li.append(n, dt); hl.appendChild(li);
+  });
+  const ferienSet = new Set();
+  const chips = $("chips"); chips.innerHTML = "";
+  FERIEN.forEach(f => {
+    let d = parse(f.from), e = parse(f.to);
+    while (d <= e){ ferienSet.add(iso(d)); d = addDays(d,1); }
+    if (f.from.startsWith(year+"-") || f.to.startsWith(year+"-")){
+      const c = document.createElement("span"); c.className = "chip";
+      c.textContent = `${tr().fer[f.name]}: ${parse(f.from).toLocaleDateString(LOC(),{day:"numeric",month:"short"})}` + (f.from===f.to ? "" : ` – ${parse(f.to).toLocaleDateString(LOC(),{day:"numeric",month:"short"})}`);
+      chips.appendChild(c);
+    }
+  });
+  let running = 0;
+  const today = iso(new Date());
+  const cal = $("cal"); cal.innerHTML = "";
+  for (let m=0;m<12;m++){
+    const box = document.createElement("div"); box.className="month";
+    const inMonth = mine.filter(k => k.startsWith(year+"-"+pad(m+1))).length;
+    running += inMonth;
+    const mh = document.createElement("div"); mh.className = "mhead";
+    const h = document.createElement("h3"); h.textContent = new Date(year,m,1).toLocaleDateString(LOC(),{month:"long"});
+    const cnt = document.createElement("div"); cnt.className = "cnt" + (MAX-running===0 ? " zero" : "");
+    cnt.innerHTML = (inMonth ? `${tr().mBooked(inMonth)}<br>` : "") + `<b>${MAX-running}</b> ${tr().mLeft}`;
+    mh.append(h,cnt); box.appendChild(mh);
+    const g = document.createElement("div"); g.className="mgrid";
+    tr().wd.forEach(x=>{ const s=document.createElement("div"); s.className="wd"; s.textContent=x; g.appendChild(s); });
+    const offset = (new Date(year,m,1).getDay()+6)%7;
+    for (let i=0;i<offset;i++) g.appendChild(document.createElement("div"));
+    const days = new Date(year,m+1,0).getDate();
+    for (let d=1; d<=days; d++){
+      const dt = new Date(year,m,d), k = iso(dt);
+      let c;
+      if (bookable(dt)){
+        c = document.createElement("button"); c.type="button";
+        c.className = "d" + (booked.has(k) ? " vac" : "") + (k < today ? " past" : "") + (ferienSet.has(k) ? " fer" : "");
+        c.setAttribute("aria-pressed", booked.has(k));
+        c.setAttribute("aria-label", fmt(k) + (booked.has(k) ? tr().bookedAria : ""));
+        c.onclick = () => toggle(k);
+      } else {
+        c = document.createElement("div");
+        c.className = "d " + (isHoliday(dt) ? "hol" : "we") + (ferienSet.has(k) ? " fer" : "");
+      }
+      c.textContent = d; g.appendChild(c);
+    }
+    box.appendChild(g); cal.appendChild(box);
+  }
+}
+
+render();
+</script>
+</body>
+</html>
